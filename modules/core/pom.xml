@@ -51,6 +51,7 @@
 							${project.packageName}.argument,
 							${project.packageName}.messageselector,
 							${project.packageName}.transport,
+							${project.packageName}.transport.file,
 							${project.packageName}.transport.udp
 						</Export-Package>
 						<Supported-OSC-Version>${supported.osc.version}</Supported-OSC-Version>
