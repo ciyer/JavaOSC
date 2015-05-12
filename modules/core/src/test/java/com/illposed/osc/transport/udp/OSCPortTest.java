@@ -103,6 +103,9 @@ public class OSCPortTest {
 	@After
 	public void tearDown() throws Exception {
 
+		receiver.disconnect();
+		sender.disconnect();
+
 		receiver.close();
 		sender.close();
 
