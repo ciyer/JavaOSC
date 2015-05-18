@@ -11,14 +11,12 @@ package com.illposed.osc.transport.udp;
 import com.illposed.osc.OSCPacket;
 import com.illposed.osc.OSCPacketDispatcher;
 import com.illposed.osc.OSCParseException;
-import com.illposed.osc.OSCParser;
 import com.illposed.osc.OSCParserFactory;
+import com.illposed.osc.transport.channel.OSCDatagramChannel;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 
 /**
@@ -53,7 +51,8 @@ public class OSCPortIn extends OSCPort implements Runnable {
 
 	/** state for listening */
 	private boolean listening;
-	private final OSCParser converter;
+//	private final OSCParser converter;
+	private final OSCParserFactory parserFactory;
 	private final OSCPacketDispatcher dispatcher;
 	private Thread listeningThread;
 
@@ -73,7 +72,8 @@ public class OSCPortIn extends OSCPort implements Runnable {
 	{
 		super(local, remote);
 
-		this.converter = parserFactory.create();
+//		this.converter = parserFactory.create();
+		this.parserFactory = parserFactory;
 		this.dispatcher = new OSCPacketDispatcher();
 		// NOTE We do this, even though it is against the OSC (1.0) specification,
 		//   because this is how it worked in this library until Feb. 2015.,
@@ -128,50 +128,56 @@ public class OSCPortIn extends OSCPort implements Runnable {
 
 		ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
 		final DatagramChannel channel = getChannel();
+		final OSCDatagramChannel oscChannel = new OSCDatagramChannel(channel, parserFactory, null);
 		while (listening) {
 			try {
-				buffer.clear();
-				try {
-					if (channel.isConnected()) {
-						/*final int readBytes = */channel.read(buffer);
-					} else {
-						channel.receive(buffer);
-					}
-//					final int readBytes = buffer.position();
-				} catch (final ClosedChannelException ex) {
-					if (listening) {
-						throw ex;
-					} else {
-						// if we closed the channel while receiving data,
-						// the exception is expected/normal, so we hide it
-						continue;
-					}
-				}
-				buffer.flip();
-				if (buffer.limit() == 0) {
-					if (isListening()) {
-						throw new OSCParseException("Received a packet without any data");
-					} else {
-						// normal exit: we just get a no-data package becasue we stopped listening
-						break;
-					}
-				} else {
-					// convert from OSC byte array -> Java object
-					// FIXME BAAAAAAAD!! - the overflow would happen on the receiving end, up there, not down here!
-					OSCPacket oscPacket = null;
-					do {
-						try {
-							oscPacket = converter.convert(buffer);
-						} catch (final BufferOverflowException ex) {
-							buffer = ByteBuffer.allocate(buffer.capacity() + BUFFER_SIZE);
-						}
-					} while (oscPacket == null);
+//				buffer.clear();
+//				try {
+//					if (channel.isConnected()) {
+//						/*final int readBytes = */channel.read(buffer);
+//					} else {
+//						channel.receive(buffer);
+//					}
+////					final int readBytes = buffer.position();
+//				} catch (final ClosedChannelException ex) {
+//					if (listening) {
+//						throw ex;
+//					} else {
+//						// if we closed the channel while receiving data,
+//						// the exception is expected/normal, so we hide it
+//						continue;
+//					}
+//				}
+//				buffer.flip();
+//				if (buffer.limit() == 0) {
+//					if (isListening()) {
+//						throw new OSCParseException("Received a packet without any data");
+//					} else {
+//						// normal exit: we just get a no-data package becasue we stopped listening
+//						break;
+//					}
+//				} else {
+//					// convert from OSC byte array -> Java object
+//					// FIXME BAAAAAAAD!! - the overflow would happen on the receiving end, up there, not down here!
+//					OSCPacket oscPacket = null;
+//					do {
+//						try {
+//							oscPacket = converter.convert(buffer);
+//						} catch (final BufferOverflowException ex) {
+//							buffer = ByteBuffer.allocate(buffer.capacity() + BUFFER_SIZE);
+//						}
+//					} while (oscPacket == null);
+					OSCPacket oscPacket = oscChannel.read(buffer);
 
 					// dispatch the Java object
 					dispatcher.dispatchPacket(oscPacket);
-				}
+//				}
 			} catch (final IOException ex) {
-				stopListening(ex);
+				if (isListening()) {
+					stopListening(ex);
+				} else {
+					stopListening();
+				}
 			} catch (final OSCParseException ex) {
 				stopListening(ex);
 			}
