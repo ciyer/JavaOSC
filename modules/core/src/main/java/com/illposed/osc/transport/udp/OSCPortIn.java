@@ -205,9 +205,17 @@ public class OSCPortIn extends OSCPort implements Runnable {
 	public void stopListening() {
 
 		listening = false;
-		// NOTE This is not thread-save
-		if (getChannel().isBlocking() && (listeningThread != null)) {
-			listeningThread.interrupt();
+		if (getChannel().isBlocking()) {
+			// NOTE This is not thread-save
+			try {
+				getChannel().close();
+			} catch (final IOException ex) {
+				ex.printStackTrace();
+				// NOTE This is not thread-save
+				if (listeningThread != null) {
+					listeningThread.interrupt();
+				}
+			}
 		}
 		listeningThread = null;
 	}
